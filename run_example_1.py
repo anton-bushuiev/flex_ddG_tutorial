@@ -10,20 +10,28 @@ import subprocess
 use_multiprocessing = True
 if use_multiprocessing:
     import multiprocessing
-    max_cpus = 2 # We might want to not run on the full number of cores, as Rosetta take about 2 Gb of memory per instance
+    max_cpus = 31 # We might want to not run on the full number of cores, as Rosetta take about 2 Gb of memory per instance
 
 ###################################################################################################################################################################
 # Important: The variables below are set to values that will make the run complete faster (as a tutorial example), but will not give scientifically valid results.
 #            Please change them to the "normal" default values before a real run.
 ###################################################################################################################################################################
 
-rosetta_scripts_path = os.path.expanduser("~/rosetta/source/bin/rosetta_scripts")
-nstruct = 3 # Normally 35
-max_minimization_iter = 5 # Normally 5000
-abs_score_convergence_thresh = 200.0 # Normally 1.0
-number_backrub_trials = 10 # Normally 35000
-backrub_trajectory_stride = 5 # Can be whatever you want, if you would like to see results from earlier time points in the backrub trajectory. 7000 is a reasonable number, to give you three checkpoints for a 35000 step run, but you could also set it to 35000 for quickest run time (as the final minimization and packing steps will only need to be run one time).
-path_to_script = 'ddG-backrub.xml'
+in_dir_name = 'inputs'
+out_dir_name = 'output'
+
+rosetta_scripts_path = os.path.expanduser('/storage/brno2/home/romanb/rosetta/rosetta.binary.linux.release-296/main/source/bin/rosetta_scripts.default.linuxgccrelease')
+nstruct = 5 # Normally 35
+max_minimization_iter = 250 # Normally 5000
+abs_score_convergence_thresh = 1.0 # Normally 1.0
+# number_backrub_trials = 1 # Normally 35000
+# backrub_trajectory_stride = 5 # Can be whatever you want, if you would like to see results from earlier time points in the backrub trajectory. 7000 is a reasonable number, to give you three checkpoints for a 35000 step run, but you could also set it to 35000 for quickest run time (as the final minimization and packing steps will only need to be run one time).
+# nstruct = 3 # Normally 35
+# max_minimization_iter = 5 # Normally 5000
+# abs_score_convergence_thresh = 200.0 # Normally 1.0
+# number_backrub_trials = 10 # Normally 35000
+# backrub_trajectory_stride = 5 # Can be whatever you want, if you would like to see results from earlier time points in the backrub trajectory. 7000 is a reasonable number, to give you three checkpoints for a 35000 step run, but you could also set it to 35000 for quickest run time (as the final minimization and packing steps will only need to be run one time).
+path_to_script = 'ddG-no_backrub_control.xml'#'ddG-backrub.xml'
 
 if not os.path.isfile(rosetta_scripts_path):
     print('ERROR: "rosetta_scripts_path" variable must be set to the location of the "rosetta_scripts" binary executable')
@@ -31,7 +39,7 @@ if not os.path.isfile(rosetta_scripts_path):
     raise Exception('Rosetta scripts missing')
 
 def run_flex_ddg( name, input_path, input_pdb_path, chains_to_move, nstruct_i ):
-    output_directory = os.path.join( 'output', os.path.join( name, '%02d' % nstruct_i ) )
+    output_directory = os.path.join( out_dir_name, os.path.join( name, '%02d' % nstruct_i ) )
     if not os.path.isdir(output_directory):
         os.makedirs(output_directory)
 
@@ -42,10 +50,10 @@ def run_flex_ddg( name, input_path, input_pdb_path, chains_to_move, nstruct_i ):
         '-parser:script_vars',
         'chainstomove=' + chains_to_move,
         'mutate_resfile_relpath=' + os.path.abspath( os.path.join( input_path, 'nataa_mutations.resfile' ) ),
-        'number_backrub_trials=%d' % number_backrub_trials,
+        # 'number_backrub_trials=%d' % number_backrub_trials,
         'max_minimization_iter=%d' % max_minimization_iter,
         'abs_score_convergence_thresh=%.1f' % abs_score_convergence_thresh,
-        'backrub_trajectory_stride=%d' % backrub_trajectory_stride ,
+        # 'backrub_trajectory_stride=%d' % backrub_trajectory_stride ,
         '-restore_talaris_behavior',
         '-in:file:fullatom',
         '-ignore_unrecognized_res',
@@ -69,8 +77,8 @@ def run_flex_ddg( name, input_path, input_pdb_path, chains_to_move, nstruct_i ):
 if __name__ == '__main__':
     cases = []
     for nstruct_i in range(1, nstruct + 1 ):
-        for case_name in os.listdir('inputs'):
-            case_path = os.path.join( 'inputs', case_name )
+        for case_name in os.listdir(in_dir_name):
+            case_path = os.path.join( in_dir_name, case_name )
             for f in os.listdir(case_path):
                 if f.endswith('.pdb'):
                     input_pdb_path = os.path.join( case_path, f )
@@ -82,7 +90,9 @@ if __name__ == '__main__':
             cases.append( (case_name, case_path, input_pdb_path, chains_to_move, nstruct_i) )
 
     if use_multiprocessing:
-        pool = multiprocessing.Pool( processes = min(max_cpus, multiprocessing.cpu_count()) )
+        n_cpus = 31  #
+        print(f'Using {n_cpus} CPUs.')
+        pool = multiprocessing.Pool(processes=n_cpus)
 
     for args in cases:
         if use_multiprocessing:
